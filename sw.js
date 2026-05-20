@@ -1,32 +1,35 @@
-// sw.js - Versão Corrigida para Reativar o Botão de Baixar (PWA)
-self.addEventListener('install', (event) => {
-    self.skipWaiting();
-});
-
-self.addEventListener('activate', (event) => {
-    event.waitUntil(self.clients.claim());
-});
-
-// OBRIGATÓRIO PARA O NAVEGADOR PERMITIR O DOWNLOAD (BOTÃO DE BAIXAR)
-// Esse evento intercepta as buscas e prova ao navegador que o app funciona offline
-self.addEventListener('fetch', (event) => {
-    // Mantém as requisições fluindo normalmente sem travar o site
-    event.respondWith(fetch(event.request).catch(() => fetch(event.request)));
-});
-
-// CONTROLE DE NOTIFICAÇÕES EM SEGUNDO PLANO (Mantido Intacto)
+// Ouvinte para mensagens vindas do script.js
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'DISPARAR_ALERTA') {
         const title = event.data.title;
         const options = {
-            body: event.data.desc || 'Lembrete do aplicativo Jesus Reina',
-            icon: 'icone-jesus-reina.png', // Usa o novo ícone da águia como padrão
-            badge: 'icone-jesus-reina.png',
-            tag: 'jesus-reina-alerta',
-            requireInteraction: true,
-            silent: false
+            body: event.data.desc || 'O horário do seu agendamento chegou!',
+            requireInteraction: true, // Mantém o balão na tela do PC até o usuário agir
+            vibrate: [200, 100, 200]
         };
 
-        self.registration.showNotification(title, options);
+        event.waitUntil(
+            self.registration.showNotification(title, options)
+        );
     }
+});
+
+// Manipula o clique na notificação nativa do PC
+self.addEventListener('notificationclick', (event) => {
+    event.notification.close(); // Fecha o balão de alerta do Windows/Mac
+
+    // Traz a aba do aplicativo de volta para o foco do usuário
+    event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+            for (let i = 0; i < clientList.length; i++) {
+                let client = clientList[i];
+                if (client.url === '/' && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            if (clients.openWindow) {
+                return clients.openWindow('/');
+            }
+        })
+    );
 });
