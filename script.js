@@ -15,6 +15,7 @@ if ('serviceWorker' in navigator && 'Notification' in window) {
                 serviceWorkerReg = registration;
                 console.log('Service Worker ativo com sucesso!');
                 
+                // Solicita permissão para notificações nativas no PC
                 if (Notification.permission !== 'granted' && Notification.permission !== 'denied') {
                     Notification.requestPermission().then(permission => {
                         if (permission === 'granted') {
@@ -171,22 +172,35 @@ setInterval(() => {
             document.getElementById('central-alert-text').innerHTML = `<h3>⏰ ${ev.title}</h3><p>${ev.desc}</p>`;
             overlayBg.classList.remove('hidden');
 
-            // DISPARO DE SINAL PARA NOTIFICAÇÃO NATIVA DO PC
-            if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-                navigator.serviceWorker.controller.postMessage({
-                    type: 'DISPARAR_ALERTA',
-                    title: `⏰ JESUS REINA: ${ev.title}`,
-                    desc: ev.desc
-                });
+            // DISPARO DE SINAL SEGURO PARA NOTIFICAÇÃO NATIVA DO PC (SISTEMA OPERACIONAL)
+            if (Notification.permission === 'granted') {
+                const tituloNotificacao = `⏰ JESUS REINA: ${ev.title}`;
+                const opcoesNotificacao = {
+                    body: ev.desc || 'O horário do seu alarme chegou!',
+                    requireInteraction: true // Mantém o balão fixo no PC até você fechar
+                };
+
+                if (serviceWorkerReg) {
+                    serviceWorkerReg.showNotification(tituloNotificacao, opcoesNotificacao);
+                } else if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'DISPARAR_ALERTA',
+                        title: tituloNotificacao,
+                        desc: ev.desc
+                    });
+                } else {
+                    new Notification(tituloNotificacao, opcoesNotificacao);
+                }
             }
 
+            // REPRODUÇÃO DO ÁUDIO SELECIONADO PELO USUÁRIO
             if (ev.soundUrl) {
                 if (somAtivo) desligarAlerta();
                 somAtivo = new Audio(ev.soundUrl); somAtivo.loop = true; somAtivo.play();
                 quickStopBtn.classList.add('stop-btn-active');
                 
                 document.getElementById('central-stop-btn').onclick = desligarAlerta;
-                setTimeout(desligarAlerta, 900000);
+                setTimeout(desligarAlerta, 900000); // Autodesliga após 15 minutos
             }
         }
         if (hora === "00:00") ev.tocadoHoje = false;
